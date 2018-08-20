@@ -44,9 +44,6 @@ var num_to_let = (num, str = '') => {
 
 /*****************************************BEGIN SCRIPT***********************************************/
 
-//TODO: Refresh button in top corner
-
-//Populate column header array
 for(var i = 0; i <= cols; i++){
     column_head_letters[i] = num_to_let(i)
 }
@@ -56,39 +53,14 @@ for(var i = 0; i <= cols; i++){
         var row = document.querySelector("table").insertRow(-1)
         for (var j = 0; j<= cols; j++) {
             var letter = column_head_letters[j]
-            row.insertCell(-1).innerHTML = i&&j ? "<input id='" + letter+'-'+i + "'/>" : i||letter
+            row.insertCell(-1).innerHTML = i && j ? `<input class='in' id='${letter}-${i}'/>` : i||letter
         }
     }
 })()
 
-var DATA = {}
-var INPUTS = [...document.querySelectorAll("input")];//ES6 only
+focused_cell = $(`#${document.getElementById("A1")}`)
 
-// INPUTS.forEach((elm) => { //work on replacing with jquery...
-//     elm.onfocus = (e) => e.target.value = localStorage[e.target.id] || ""
-//     elm.onblur = (e) => {
-//         localStorage[e.target.id] = e.target.value;
-//         computeAll()
-//     }
-//     var getter = function() { //Why can't I extract this function??? Scopes..?
-//         var value = localStorage[elm.id] || ""
-//         if (value.charAt(0) === "=") with (DATA) return eval(value.substring(1)) //How to get rid of 'with'?
-//         else return isNaN(parseFloat(value)) ? value : parseFloat(value)
-//     }
-//     Object.defineProperty(DATA, elm.id, {get:getter})
-//     Object.defineProperty(DATA, elm.id.toLowerCase(), {get:getter})
-// })
-
-// var computeAll = () => INPUTS.forEach((elm) => {
-//     try { elm.value = DATA[elm.id] }
-//     catch(e) {}
-// })
-
-// computeAll()
-
-/*******************************************END SCRIPT***********************************************/
-
-$("input").css({
+$(".in").css({
     'text-align': 'right',
     'border': 'none',
     'font-size': '14px',
@@ -117,42 +89,90 @@ $("td").css({
 
 $("table").css({'border-collapse': 'collapse'})
 
-$("input").focus( function(){
-    $(this).css({
+$(".in").focus( function(){
+
+    blur_cell(focused_cell) //blur out the old selected cell
+    focused_cell = $(this)
+
+    $(this).css({ //highlight cell
         'background-color': focus_col,
         'text-align': 'left'
     })
+
+    //Set the font buttons correctly
+    var fw = $(this).prop('font-weight')
+    if(fw === 'normal' || fw === undefined) $('#bold').prop('checked', false)
+    else $('#bold').prop('checked', true)
+
+    var fs = $(this).prop('font-style')
+    if(fs === 'normal' || fs === undefined) $('#italic').prop('checked', false)
+    else $('#italic').prop('checked', true)
+    
+    var tdec = $(this).prop('text-decoration')
+    if(tdec === 'none' || tdec === undefined) $('#underline').prop('checked', false)
+    else $('#underline').prop('checked', true)
+
 })
 
-$("input").blur( function(){
-    $(this).css({
-        'background-color': bg_col,
-        'text-align': 'right'
-    })
+//Font settings per cell
+$(".selector").click( function() {
+    
+    if($(this).prop('id') === 'bold'){
+        if($(this).prop('checked') === true) focused_cell.css({'font-weight': 'bold'})
+        else focused_cell.css({'font-weight': 'normal'})
+    }
+
+    if($(this).prop('id') === 'italic'){
+        if($(this).prop('checked') === true) focused_cell.css({'font-style': 'italic'})
+        else focused_cell.css({'font-style': 'normal'})
+    }
+
+    if($(this).prop('id') === 'underline'){
+        if($(this).prop('checked') === true) focused_cell.css({'text-decoration': 'underline'})
+        else focused_cell.css({'text-decoration': 'none'})
+    }
+
 })
 
-$("input").mouseover( function(){
-    if(this.id !== document.activeElement.id)
-        $(this).css({'background-color': highlight_col})
-})
-
-$("input").mouseout( function(){
-    var focused = this.id === document.activeElement.id
-    $(this).css({'background-color': focused ? focus_col : bg_col})
-})
-
-$("input").keypress( function(e) {
+$(".in").keypress( function(e) {
+    
     if(e.which === 13){
-        //evaluate()
-        var curr = document.activeElement.id.split('-')
+        //call evaluation function
+            //if this cell is a function OR
+            //if this cell is a dependency then trigger sheet evaluation
+        var curr = focused_cell.prop('id').split('-')
         var toFocus = curr[0] + '-' + ((curr[1] % rows) + 1)
         $('#'+toFocus).focus()
     }
 })
 
-//Enter button handler
+// $("*:not(.in)").focus( function(e){
+//     console.log(e)
+// })
 
-
-$(document).ready( function(){
-    $("#A-4").focus() //Why not working?
+$(".in").blur( function(e){
+    //call evaluation function
+    if(e.originalEvent.relatedTarget)
+    blur_cell($(this))
 })
+
+$(".in").mouseover( function(){
+    if(this.id !== focused_cell.prop('id'))
+        $(this).css({'background-color': highlight_col})
+})
+
+$(".in").mouseout( function(){
+    var focused = this.id === focused_cell.prop('id')
+    $(this).css({'background-color': focused ? focus_col : bg_col})
+})
+
+focused_cell.focus() //why doesnt this work?
+
+//each cell have ref to its dependants, evaluate
+
+var blur_cell = (cell) => {
+    cell.css({
+        'background-color': bg_col,
+        'text-align': 'right'
+    })
+}
