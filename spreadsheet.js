@@ -156,14 +156,12 @@ var evaluate = (cell) => {
         'text': cell_text,
         'refs': refs
     }))
-
-    //console.log(result)
     cell.prop('value', result)
     
     //console.log(cells.get(cell_id))
     // for (var [key, value] of cells) { console.log(key + ' = ' + value); }
     
-    save() //save the map
+    save()
 
 }
 
@@ -172,10 +170,25 @@ var calculate = (cell) => {
     if(typeof text === 'number') return text
     if(text.charAt(0) !== '=') return text
 
+    var expression = text.substring(1)
+    var regex = /[A-Z]+[0-9]+/gm
+    var cell_refs = text.match(regex)
+    if(cell_refs){
+        cell_refs.forEach(function(ref) {
+            var id = to_cell_id(ref)
+            var res = JSON.parse(cells.get(id)).result
+            expression = expression.replace(ref, res)
+    })}
+
     //big boy stuff
     //first thing to do is evaluate functions but that is later...
-    return eval(text.substring(1))
+    return eval(expression)
 
+}
+
+var to_cell_id = (str) => {
+    var index = str.indexOf(str.match(/\d/))
+    return str.substring(0, index) + "-" + str.substring(index)
 }
 
 var save = () => {
@@ -205,8 +218,6 @@ var blur_cell = (cell) => {
         'background-color': bg_col,
         'text-align': 'right'
     })
-    var exists = cells.has(cell.prop('id'))
-    //if(exists) cell.val(JSON.parse(cells.get(id)).text)
 }
 
 focused_cell.focus() //why doesnt this work?
