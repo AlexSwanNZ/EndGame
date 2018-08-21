@@ -44,9 +44,7 @@ var num_to_let = (num, str = '') => {
 
 /*****************************************BEGIN SCRIPT***********************************************/
 
-for(var i = 0; i <= cols; i++){
-    column_head_letters[i] = num_to_let(i)
-}
+for(var i = 0; i <= cols; i++){ column_head_letters[i] = num_to_let(i) }
 
 (window.draw_table = () => {
     for (var i = 0; i <= rows; i++) {
@@ -91,46 +89,29 @@ $("table").css({'border-collapse': 'collapse'})
 
 $(".in").focus( function(){
 
-    blur_cell(focused_cell) //blur out the old selected cell
+    blur_cell(focused_cell)
     focused_cell = $(this)
 
-    $(this).css({ //highlight cell
+    $(this).css({
         'background-color': focus_col,
         'text-align': 'left'
     })
 
     //Set the font buttons correctly
-    var fw = $(this).prop('font-weight')
-    if(fw === 'normal' || fw === undefined) $('#bold').prop('checked', false)
-    else $('#bold').prop('checked', true)
-
-    var fs = $(this).prop('font-style')
-    if(fs === 'normal' || fs === undefined) $('#italic').prop('checked', false)
-    else $('#italic').prop('checked', true)
-    
-    var tdec = $(this).prop('text-decoration')
-    if(tdec === 'none' || tdec === undefined) $('#underline').prop('checked', false)
-    else $('#underline').prop('checked', true)
+    $('#bold').prop('checked', ($(this).css('font-weight') == 700) ? true : false)
+    $('#italic').prop('checked', ($(this).css('font-style') === 'italic') ? true : false)
+    $('#underline').prop('checked', $(this).css('text-decoration') === 'underline' ? true : false)
 
 })
 
 //Font settings per cell
 $(".selector").click( function() {
     
-    if($(this).prop('id') === 'bold'){
-        if($(this).prop('checked') === true) focused_cell.css({'font-weight': 'bold'})
-        else focused_cell.css({'font-weight': 'normal'})
-    }
-
-    if($(this).prop('id') === 'italic'){
-        if($(this).prop('checked') === true) focused_cell.css({'font-style': 'italic'})
-        else focused_cell.css({'font-style': 'normal'})
-    }
-
-    if($(this).prop('id') === 'underline'){
-        if($(this).prop('checked') === true) focused_cell.css({'text-decoration': 'underline'})
-        else focused_cell.css({'text-decoration': 'none'})
-    }
+    var box = $(this).prop('id')
+    var checked = $(this).prop('checked')
+    if(box === 'bold') focused_cell.css('font-weight', checked ? 'bold': 'normal')
+    if(box === 'italic') focused_cell.css('font-style', checked ? 'italic' : 'normal')
+    if(box === 'underline') focused_cell.css('text-decoration', checked ? 'underline' : 'none')
 
 })
 
@@ -152,8 +133,11 @@ $(".in").keypress( function(e) {
 
 $(".in").blur( function(e){
     //call evaluation function
-    if(e.originalEvent.relatedTarget)
-    blur_cell($(this))
+    var targ = e.originalEvent.relatedTarget
+    if(targ && targ.class === 'in'){
+        blur_cell($(this))
+        console.log('bluer')
+    }
 })
 
 $(".in").mouseover( function(){
@@ -176,3 +160,9 @@ var blur_cell = (cell) => {
         'text-align': 'right'
     })
 }
+
+// var map = new Map()
+// map.set('f', 'g')
+// for (var [key, value] of map) {
+//     console.log(key + ' = ' + value);
+// }
