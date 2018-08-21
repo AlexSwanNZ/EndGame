@@ -12,7 +12,7 @@ var column_head_letters = []
 var log = document.getElementById("log")
 
 var cells = new Map()
-// localStorage['data'] = JSON.stringify(Array.from(cells.entries()));
+var links = new Map()
 
 var bg_col = '#fff',
     highlight_col = '#eee',
@@ -93,16 +93,19 @@ $("table").css({'border-collapse': 'collapse'})
 
 $(".in").focus( function(){
 
+    //Evaluates previous cell
     blur_cell(focused_cell)
     focused_cell = $(this)
     var id = focused_cell.prop('id')
 
+    //Highlight current cell
     $(this).css({
         'background-color': focus_col,
         'text-align': 'left'
     })
 
-    var disp = cells.has(id) ? JSON.parse(cells.get(id)).text : undefined
+    //Display the underlying formula for selected cell
+    var disp = cells.has(id) ? cells.get(id).formula : undefined
     if(disp) $(this).val(disp)
 
     //Set the font buttons correctly
@@ -124,8 +127,8 @@ $(".selector").click( function() {
 })
 
 $(".in").keypress( function(e) {
+    //Go to next cell if ENTER pressed
     if(e.which === 13){
-        $(this).blur()
         var curr = focused_cell.prop('id').split('-')
         var toFocus = curr[0] + '-' + ((curr[1] % rows) + 1)
         $('#'+toFocus).focus()
@@ -134,59 +137,63 @@ $(".in").keypress( function(e) {
 
 var evaluate = (cell) => {
     
-    var cell_id = cell.prop('id')
-    var cell_text = cell.prop('value')
-    var exists = cells.has(cell_id)
-    var refs = exists ? cells.get(cell_id).refs : undefined
+    var id = cell.prop('id')
+    var formula = cell.prop('value')
+    var exists = cells.has(id)
+    var refs = exists ? cells.get(id).refs : undefined
 
     //If the cell is blank remove it unless it is referenced elsewhere
-    if(cell_text.length == 0){
+    if(formula.length == 0){
         if(!exists) return
-        if(refs) cells.set(cell_id, JSON.stringify({
-            'result': '',
-            'text': '',
+        if(refs) cells.set(id, {
+            'value': '',
+            'formula': '',
             'refs': refs
-        }))
+        })
         return cells.delete(cell.prop('id'))
     }
 
     var result = calculate(cell)
-    cells.set(cell_id, JSON.stringify({
-        'result': result,
-        'text': cell_text,
+    cells.set(id, {
+        'value': result,
+        'formula': formula,
         'refs': refs
-    }))
+    })
     cell.prop('value', result)
     
     //console.log(cells.get(cell_id))
-    // for (var [key, value] of cells) { console.log(key + ' = ' + value); }
+    //for (var [key, value] of cells) { console.log(key + ' = ' + value); }
     
     save()
 
 }
 
 var calculate = (cell) => {
-    var text = cell.prop('value')
-    if(typeof text === 'number') return text
-    if(text.charAt(0) !== '=') return text
 
-    var expression = text.substring(1)
-    var regex = /[A-Z]+[0-9]+/gm
-    var cell_refs = text.match(regex)
-    if(cell_refs){
-        cell_refs.forEach(function(ref) {
-            var id = to_cell_id(ref)
-            var res = JSON.parse(cells.get(id)).result
-            expression = expression.replace(ref, res)
+    var formula = cell.prop('value')
+    if(typeof formula === 'number') return formula
+    if(formula.charAt(0) !== '=') return formula
+
+    var c_refs = get_refs(formula)
+    if(c_refs){ c_refs.forEach(function(ref) {
+        var res = cells.get(to_id(ref)).value
+        formula = formula.replace(ref, res)
     })}
 
-    //big boy stuff
     //first thing to do is evaluate functions but that is later...
-    return eval(expression)
+    return eval(formula.substring(1))
 
 }
 
-var to_cell_id = (str) => {
+/**
+ * Get all the cell references contained in a formula
+ * @param {string} formula 
+ */
+var get_refs = (formula) => {
+    return formula.match(/[A-Z]+[0-9]+/gm)
+}
+
+var to_id = (str) => {
     var index = str.indexOf(str.match(/\d/))
     return str.substring(0, index) + "-" + str.substring(index)
 }
@@ -201,7 +208,10 @@ var clear = () => {
     //redraw (inefficient) or clear each cell
 }
 
-$(".in").blur( function(e){ evaluate($(this)) })
+//Blur evaluates a cell
+$(".in").blur( function(e){
+    evaluate($(this))
+})
 
 $(".in").mouseover( function(){
     if(this.id !== focused_cell.prop('id'))
