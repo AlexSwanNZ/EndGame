@@ -11,6 +11,9 @@ const rows = 10
 var column_head_letters = []
 var log = document.getElementById("log")
 
+var cells = new Map()
+// localStorage['data'] = JSON.stringify(Array.from(cells.entries()));
+
 var bg_col = '#fff',
     highlight_col = '#eee',
     focus_col = '#ccf',
@@ -52,11 +55,12 @@ for(var i = 0; i <= cols; i++){ column_head_letters[i] = num_to_let(i) }
         for (var j = 0; j<= cols; j++) {
             var letter = column_head_letters[j]
             row.insertCell(-1).innerHTML = i && j ? `<input class='in' id='${letter}-${i}'/>` : i||letter
+            //load cell contents/parameters here
         }
     }
 })()
 
-focused_cell = $(`#${document.getElementById("A1")}`)
+focused_cell = $(`#${document.getElementById("A1")}`) //Not working...
 
 $(".in").css({
     'text-align': 'right',
@@ -91,11 +95,15 @@ $(".in").focus( function(){
 
     blur_cell(focused_cell)
     focused_cell = $(this)
+    var id = focused_cell.prop('id')
 
     $(this).css({
         'background-color': focus_col,
         'text-align': 'left'
     })
+
+    var disp = cells.has(id) ? JSON.parse(cells.get(id)).text : undefined
+    if(disp) $(this).val(disp)
 
     //Set the font buttons correctly
     $('#bold').prop('checked', ($(this).css('font-weight') == 700) ? true : false)
@@ -116,29 +124,71 @@ $(".selector").click( function() {
 })
 
 $(".in").keypress( function(e) {
-    
     if(e.which === 13){
-        //call evaluation function
-            //if this cell is a function OR
-            //if this cell is a dependency then trigger sheet evaluation
+        $(this).blur()
         var curr = focused_cell.prop('id').split('-')
         var toFocus = curr[0] + '-' + ((curr[1] % rows) + 1)
         $('#'+toFocus).focus()
     }
 })
 
-// $("*:not(.in)").focus( function(e){
-//     console.log(e)
-// })
+var evaluate = (cell) => {
+    
+    var cell_id = cell.prop('id')
+    var cell_text = cell.prop('value')
+    var exists = cells.has(cell_id)
+    var refs = exists ? cells.get(cell_id).refs : undefined
 
-$(".in").blur( function(e){
-    //call evaluation function
-    var targ = e.originalEvent.relatedTarget
-    if(targ && targ.class === 'in'){
-        blur_cell($(this))
-        console.log('bluer')
+    //If the cell is blank remove it unless it is referenced elsewhere
+    if(cell_text.length == 0){
+        if(!exists) return
+        if(refs) cells.set(cell_id, JSON.stringify({
+            'result': '',
+            'text': '',
+            'refs': refs
+        }))
+        return cells.delete(cell.prop('id'))
     }
-})
+
+    var result = calculate(cell)
+    cells.set(cell_id, JSON.stringify({
+        'result': result,
+        'text': cell_text,
+        'refs': refs
+    }))
+
+    //console.log(result)
+    cell.prop('value', result)
+    
+    //console.log(cells.get(cell_id))
+    // for (var [key, value] of cells) { console.log(key + ' = ' + value); }
+    
+    save() //save the map
+
+}
+
+var calculate = (cell) => {
+    var text = cell.prop('value')
+    if(typeof text === 'number') return text
+    if(text.charAt(0) !== '=') return text
+
+    //big boy stuff
+    //first thing to do is evaluate functions but that is later...
+    return eval(text.substring(1))
+
+}
+
+var save = () => {
+    //get list of keys
+    //store each key in localstorage with JSON value of object in map
+}
+
+var clear = () => {
+    //clear reference array and localStorage
+    //redraw (inefficient) or clear each cell
+}
+
+$(".in").blur( function(e){ evaluate($(this)) })
 
 $(".in").mouseover( function(){
     if(this.id !== focused_cell.prop('id'))
@@ -150,19 +200,22 @@ $(".in").mouseout( function(){
     $(this).css({'background-color': focused ? focus_col : bg_col})
 })
 
-focused_cell.focus() //why doesnt this work?
-
-//each cell have ref to its dependants, evaluate
-
 var blur_cell = (cell) => {
     cell.css({
         'background-color': bg_col,
         'text-align': 'right'
     })
+    var exists = cells.has(cell.prop('id'))
+    //if(exists) cell.val(JSON.parse(cells.get(id)).text)
 }
 
-// var map = new Map()
-// map.set('f', 'g')
-// for (var [key, value] of map) {
+focused_cell.focus() //why doesnt this work?
+
+// cells.set('f', 'g')
+// for (var [key, value] of cells) {
 //     console.log(key + ' = ' + value);
 // }
+
+// $("*:not(.in)").focus( function(e){
+//     console.log(e)
+// })
