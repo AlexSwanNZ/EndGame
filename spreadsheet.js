@@ -8,8 +8,9 @@
 const cols = 10
 const rows = 10
 
+const functions = [/(sum|SUM)\([A-Z]+[0-9]+:[A-Z]+[0-9]+\)/gm]
+
 var column_head_letters = []
-var log = document.getElementById("log")
 
 var DATA = new Map()
 var LINKS = new Map()
@@ -31,6 +32,15 @@ var num_to_let = (num, str = '') => {
 
 }
 
+var unique_array = (array) => {
+    if(!array) return array
+    var unique = []
+    array.forEach( function(e){
+        if(unique.indexOf(e) === -1) unique.push(e)
+    })
+    return unique
+}
+
 /*****************************************BEGIN SCRIPT***********************************************/
 
 for(var i = 0; i <= cols; i++){ column_head_letters[i] = num_to_let(i) }
@@ -46,34 +56,169 @@ for(var i = 0; i <= cols; i++){ column_head_letters[i] = num_to_let(i) }
     }
 })()
 
-$(".in").css({
-    'text-align': 'right',
-    'border': 'none',
-    'font-size': '14px',
-    'padding': '2px'
-})
-.width(cell_width)
+var evaluate = (cell) => {
+    
+    var id = cell.prop('id')
+    var formula = cell.prop('value')
 
-$("tr:first-child").css({
-    'background-color': '#ccc',
-    'padding': '1px 3px',
-    'font-weight': 'bold',
-    'text-align': 'center'
-})
+    //Flags
+    var DELETE_CELL = formula.length == 0
+    var NEW_CELL = !DATA.has(id)
+    var MODIFY_CELL = !NEW_CELL
+    var NO_INPUT = formula.length == 0 && NEW_CELL
 
-$("td:first-child").css({
-    'background-color': '#ccc',
-    'padding': '1px 3px',
-    'font-weight': 'bold',
-    'text-align': 'center'
-})
+    if(NO_INPUT) return
 
-$("td").css({
-    'border': '1px solid #999',
-    'padding': '0'
-})
+    //list of unique links to other cells before and after change
+    var old_refs = NEW_CELL ? undefined : get_refs(DATA.get(id).formula)
+    var new_refs = get_refs(formula)
 
-$("table").css({'border-collapse': 'collapse'})
+    if(DELETE_CELL){
+
+        remove_old_links(id, old_refs)
+        DATA.delete(id)
+
+    }
+
+    else if(NEW_CELL){
+
+        refresh_cell(id, formula, new_refs)
+        add_new_links(id, new_refs)
+
+    }
+    
+    else if(MODIFY_CELL){
+
+        refresh_cell(id, formula, new_refs)
+        remove_old_links(id, old_refs)
+        add_new_links(id, new_refs)
+
+    }
+    
+    update_refs(id)
+    save()
+
+}
+
+var update_refs = (id) => {
+    var update = LINKS.get(id)
+    if(update){ update.forEach( function(c){
+        refresh_links(c)
+    })}
+}
+
+var refresh_links = (id) => {
+    var formula = DATA.get(id).formula
+    refresh_cell(id, formula, get_refs(formula))
+    update_refs(id)
+}
+
+var compute = (formula, new_refs) => {
+
+    //cant just jump in and replace all refs because there might be a function
+    //finding references will need to operate completely differently but that can be sorted later
+
+    var is_function = formula.charAt(0) === '='
+    if(is_function){ functions.forEach( function(f){
+        var funcs = formula.match(f)
+        if(funcs){
+            //funcs may be many so need a for loop here
+            formula = formula.replace(funcs[0], 3) //sum always evaluates to 3
+        }
+    })}
+
+    try{ if(new_refs){ new_refs.forEach(function(ref) {
+        var res = DATA.get(hyphenate(ref)).value
+        do{ formula = formula.replace(ref, res) }
+        while(formula.includes(ref))
+    })}}catch(e){ return "#ERROR" }
+    return is_function ? eval(formula.substring(1)) : formula
+}
+
+var sum = (formula) => {
+
+}
+
+var refresh_cell = (id, formula, new_refs) => {
+    var result = compute(formula, new_refs)
+    DATA.set(id, {
+        'value': result,
+        'formula': formula
+    })
+    $(`#${id}`).prop('value', result)
+}
+
+var remove_old_links = (id, old_refs) => {
+    if(old_refs){ 
+        old_refs.forEach(function(ref) {
+            var href = hyphenate(ref)
+            var list = LINKS.get(href)
+            list.splice(ref.indexOf(id), 1)
+            if(list.length === 0) LINKS.delete(href)
+        })
+    }
+}
+
+var add_new_links = (id, new_refs) => {
+    if(new_refs) new_refs.forEach(function(ref) {
+        var href = hyphenate(ref)
+        if(!LINKS.has(href)) LINKS.set(href, [])
+        LINKS.get(href).push(id)
+    })
+}
+
+var get_refs = (formula) => {
+
+    var range_refs = []
+    if(formula.includes(':')){
+
+        var ranges = formula.match(/[A-Z]+[0-9]+:[A-Z]+[0-9]+/gm)
+        ranges.forEach( function(range){
+            console.log(range)
+            var letters = range.match(/[A-Z]+/gm)
+            var a_idx = column_head_letters.indexOf(letters[0])
+            var b_idx = column_head_letters.indexOf(letters[1])
+            var min_idx = a_idx < b_idx ? a_idx : b_idx
+            var max_idx = a_idx > b_idx ? a_idx : b_idx
+            
+            var numbers = range.match(/[0-9]+/gm)
+            var num_a = Number(numbers[0])
+            var num_b = Number(numbers[1])
+            var min_num = num_a < num_b ? num_a : num_b
+            var max_num = num_a > num_b ? num_a : num_b
+            
+            for(i = min_idx; i <= max_idx; i++){
+                var letter = column_head_letters[i]
+                for(j = min_num; j <= max_num; j++){
+                    range_refs.push(letter + j)
+                }
+            }
+
+        })
+
+    }
+
+    var in_formula = formula.match(/[A-Z]+[0-9]+/gm)
+    if(range_refs.length === 0) return unique_array(in_formula)
+    if(in_formula) return unique_array(in_formula.concat(range_refs))
+    return unique_array(range_refs)
+
+}
+
+var hyphenate = (str) => {
+    var index = str.indexOf(str.match(/\d/))
+    return str.substring(0, index) + "-" + str.substring(index)
+}
+
+var save = () => {
+    //get list of keys
+    //store each key in localstorage with JSON value of object in map
+}
+
+var clear = () => {
+    //clear reference array and localStorage
+    //redraw (inefficient) or clear each cell
+}
 
 $(".in").focus( function(){
 
@@ -122,138 +267,41 @@ $(".in").keypress( function(e) {
     // }
 })
 
-// $(".in").keypress( function(e) {
-//     if(e.which === 0){
-//         for (var [key, value] of LINKS) { console.log(key + ': ' + value); }
-//         i= 0
-//     }
-// })
+$(".in").css({
+    'text-align': 'right',
+    'border': 'none',
+    'font-size': '14px',
+    'padding': '2px'
+})
+.width(cell_width)
 
-var unique_array = (array) => {
-    var unique = []
-    array.forEach( function(e){
-        if(unique.indexOf(e) === -1) unique.push(e)
-    })
-    return unique
-}
+$("tr:first-child").css({
+    'background-color': '#ccc',
+    'padding': '1px 3px',
+    'font-weight': 'bold',
+    'text-align': 'center'
+})
 
-var evaluate = (cell) => {
-    
-    var id = cell.prop('id')
-    var formula = cell.prop('value')
+$("td:first-child").css({
+    'background-color': '#ccc',
+    'padding': '1px 3px',
+    'font-weight': 'bold',
+    'text-align': 'center'
+})
 
-    //Flags
-    var DELETE_CELL = formula.length == 0
-    var NEW_CELL = !DATA.has(id)
-    var MODIFY_CELL = !NEW_CELL
-    var NO_INPUT = formula.length == 0 && NEW_CELL
+$("td").css({
+    'border': '1px solid #999',
+    'padding': '0'
+})
 
-    if(NO_INPUT) return
+$("table").css({'border-collapse': 'collapse'})
 
-    //list of unique links to other cells before and after change
-    var old_refs = NEW_CELL ? undefined : get_refs(DATA.get(id).formula)
-    var new_refs = get_refs(formula)
-    old_refs = old_refs ? unique_array(old_refs) : old_refs
-    new_refs = new_refs ? unique_array(new_refs) : new_refs
-
-    if(DELETE_CELL){
-
-        remove_old_links(id, old_refs)
-        DATA.delete(id)
-
-    }
-
-    else if(NEW_CELL){
-
-        refresh_cell(id, formula, new_refs)
-        add_new_links(id, new_refs)
-
-    }
-    
-    else if(MODIFY_CELL){
-
-        refresh_cell(id, formula, new_refs)
-        remove_old_links(id, old_refs)
-        add_new_links(id, new_refs)
-
-    }
-    
-    update_refs(id)
-    save()
-
-}
-
-var update_refs = (id) => {
-    var update = LINKS.get(id)
-    if(update){ update.forEach( function(c){
-        refresh_links(c)
-    })}
-}
-
-var refresh_links = (id) => {
-    var formula = DATA.get(id).formula
-    refresh_cell(id, formula, unique_array(get_refs(formula)))
-    update_refs(id)
-}
-
-var compute = (formula, new_refs) => {
-    try{ if(new_refs){ new_refs.forEach(function(ref) {
-        var res = DATA.get(hyphenate(ref)).value
-        do{ formula = formula.replace(ref, res) }
-        while(formula.includes(ref))
-    })}}catch(e){ return "#ERROR" }
-    return formula.charAt(0) !== '=' ? eval(formula) : eval(formula.substring(1))
-}
-
-var refresh_cell = (id, formula, new_refs) => {
-    var result = compute(formula, new_refs)
-    DATA.set(id, {
-        'value': result,
-        'formula': formula
-    })
-    $(`#${id}`).prop('value', result)
-}
-
-var remove_old_links = (id, old_refs) => {
-    if(old_refs){ 
-        old_refs.forEach(function(ref) {
-            var href = hyphenate(ref)
-            var list = LINKS.get(href)
-            list.splice(ref.indexOf(id), 1)
-            if(list.length === 0) LINKS.delete(href)
-        })
-    }
-}
-
-var add_new_links = (id, new_refs) => {
-    if(new_refs) new_refs.forEach(function(ref) {
-        var href = hyphenate(ref)
-        if(!LINKS.has(href)) LINKS.set(href, [])
-        LINKS.get(href).push(id)
-    })
-}
-
-var get_refs = (formula) => {
-    return formula.match(/[A-Z]+[0-9]+/gm)
-}
-
-var hyphenate = (str) => {
-    var index = str.indexOf(str.match(/\d/))
-    return str.substring(0, index) + "-" + str.substring(index)
-}
-
-var save = () => {
-    //get list of keys
-    //store each key in localstorage with JSON value of object in map
-}
-
-var clear = () => {
-    //clear reference array and localStorage
-    //redraw (inefficient) or clear each cell
-}
 
 $(".in").blur( function(e){
     evaluate($(this))
+    $(this).css({
+        'text-align': 'right'
+    })
 })
 
 $(".in").mouseover( function(){
@@ -274,3 +322,10 @@ var blur_cell = (cell) => {
 }
 
 focused_cell = $(`#A-1`) //Not working...
+
+// $(".in").keypress( function(e) {
+//     if(e.which === 0){
+//         for (var [key, value] of LINKS) { console.log(key + ': ' + value); }
+//         i= 0
+//     }
+// })
