@@ -1,6 +1,6 @@
 /**
  * Spreadsheet program
- * Creates a spreadsheet from a HTML table
+ * Creates a spreadsheet from a HTML table using JQuery
  * 
  * Author: Alex Swan
  */
@@ -19,13 +19,6 @@ var bg_col = '#fff',
     focus_col = '#ccf',
     cell_width = 80
 
-//I wonder if this would be faster done more procedurally...
-/**
- * Converts a number to spreadsheet letter code recursively
- * eg. A->Z, AA-> CY, AAA -> DHX etc...
- * @param {number} num number to convert to letter(s)
- * @param {string} str string of existing letters
- */
 var num_to_let = (num, str = '') => {
     
     var inp = ((num - 1) % 26) + 65
@@ -128,6 +121,21 @@ $(".in").keypress( function(e) {
     }
 })
 
+$(".in").keypress( function(e) {
+    if(e.which === 0){
+        for (var [key, value] of LINKS) { console.log(key + ': ' + value); }
+        i= 0
+    }
+})
+
+var unique_array = (array) => {
+    var unique = []
+    array.forEach( function(e){
+        if(unique.indexOf(e) === -1) unique.push(e)
+    })
+    return unique
+}
+
 var evaluate = (cell) => {
     
     var id = cell.prop('id')
@@ -141,9 +149,11 @@ var evaluate = (cell) => {
 
     if(NO_INPUT) return
 
-    //list of links to other cells before and after change
+    //list of unique links to other cells before and after change
     var old_refs = NEW_CELL ? undefined : get_refs(DATA.get(id).formula)
     var new_refs = get_refs(formula)
+    old_refs = old_refs ? unique_array(old_refs) : old_refs
+    new_refs = new_refs ? unique_array(new_refs) : new_refs
 
     if(DELETE_CELL){
 
@@ -177,7 +187,8 @@ var evaluate = (cell) => {
 var computable = (formula, new_refs) => {
     if(new_refs){ new_refs.forEach(function(ref) {
         var res = DATA.get(hyphenate(ref)).value
-        formula = formula.replace(ref, res)
+        do{ formula = formula.replace(ref, res)
+        }while(formula.includes(ref))
     })}
     return formula.charAt(0) !== '=' ? formula : formula.substring(1)
 }
@@ -191,27 +202,25 @@ var refresh_cell = (id, formula, result) => {
 }
 
 var remove_old_links = (id, old_refs) => {
-    if(old_refs){ old_refs.forEach(function(ref) {
-            LINKS.get(hyphenate(ref)).splice(ref.indexOf(id), 1)
-    })}
+    if(old_refs){ 
+        old_refs.forEach(function(ref) {
+            var href = hyphenate(ref)
+            var list = LINKS.get(href)
+            list.splice(ref.indexOf(id), 1)
+            if(list.length === 0) LINKS.delete(href)
+        })
+    }
 }
 
 var add_new_links = (id, new_refs) => {
     if(new_refs) new_refs.forEach(function(ref) {
         var href = hyphenate(ref)
+        console.log(href + ' new link added: ' + id)
         if(!LINKS.has(href)) LINKS.set(href, [])
         LINKS.get(href).push(id)
     })
 }
 
-//console.log(DATA.get(cell_id))
-//for (var [key, value] of DATA) { console.log(key + ' = ' + value); }
-
-
-/**
- * Get all the cell references contained in a formula
- * @param {string} formula 
- */
 var get_refs = (formula) => {
     return formula.match(/[A-Z]+[0-9]+/gm)
 }
@@ -235,7 +244,6 @@ var clear = () => {
     //redraw (inefficient) or clear each cell
 }
 
-//Blur evaluates a cell
 $(".in").blur( function(e){
     evaluate($(this))
 })
@@ -256,14 +264,3 @@ var blur_cell = (cell) => {
         'text-align': 'right'
     })
 }
-
-focused_cell.focus() //why doesnt this work?
-
-// DATA.set('f', 'g')
-// for (var [key, value] of DATA) {
-//     console.log(key + ' = ' + value);
-// }
-
-// $("*:not(.in)").focus( function(e){
-//     console.log(e)
-// })
