@@ -11,20 +11,13 @@ const rows = 10
 var column_head_letters = []
 var log = document.getElementById("log")
 
-var cells = new Map()
-var links = new Map()
+var DATA = new Map()
+var LINKS = new Map()
 
 var bg_col = '#fff',
     highlight_col = '#eee',
     focus_col = '#ccf',
     cell_width = 80
-
-/**
- * Utility function
- * Writes a line to a page
- * @param {object} t line to write to page
- */
-var logLine = (t) => { log.innerHTML += t + '\n' }
 
 //I wonder if this would be faster done more procedurally...
 /**
@@ -54,7 +47,7 @@ for(var i = 0; i <= cols; i++){ column_head_letters[i] = num_to_let(i) }
         var row = document.querySelector("table").insertRow(-1)
         for (var j = 0; j<= cols; j++) {
             var letter = column_head_letters[j]
-            row.insertCell(-1).innerHTML = i && j ? `<input class='in' id='${letter}-${i}'/>` : i||letter
+            row.insertCell(-1).innerHTML = i && j ? '<input class="in" id="' + letter + '-' + i + '">' : i||letter
             //load cell contents/parameters here
         }
     }
@@ -105,7 +98,7 @@ $(".in").focus( function(){
     })
 
     //Display the underlying formula for selected cell
-    var disp = cells.has(id) ? cells.get(id).formula : undefined
+    var disp = DATA.has(id) ? DATA.get(id).formula : undefined
     if(disp) $(this).val(disp)
 
     //Set the font buttons correctly
@@ -127,8 +120,8 @@ $(".selector").click( function() {
 })
 
 $(".in").keypress( function(e) {
-    //Go to next cell if ENTER pressed
     if(e.which === 13){
+        //Focus next cell
         var curr = focused_cell.prop('id').split('-')
         var toFocus = curr[0] + '-' + ((curr[1] % rows) + 1)
         $('#'+toFocus).focus()
@@ -139,51 +132,81 @@ var evaluate = (cell) => {
     
     var id = cell.prop('id')
     var formula = cell.prop('value')
-    var exists = cells.has(id)
-    var refs = exists ? cells.get(id).refs : undefined
 
-    //If the cell is blank remove it unless it is referenced elsewhere
-    if(formula.length == 0){
-        if(!exists) return
-        if(refs) cells.set(id, {
-            'value': '',
-            'formula': '',
-            'refs': refs
-        })
-        return cells.delete(cell.prop('id'))
+    //Flags
+    var DELETE_CELL = formula.length == 0
+    var NEW_CELL = !DATA.has(id)
+    var MODIFY_CELL = !NEW_CELL
+    var NO_INPUT = formula.length == 0 && NEW_CELL
+
+    if(NO_INPUT) return
+
+    //list of links to other cells before and after change
+    var old_refs = NEW_CELL ? undefined : get_refs(DATA.get(id).formula)
+    var new_refs = get_refs(formula)
+
+    if(DELETE_CELL){
+
+        remove_old_links(id, old_refs)
+        DATA.delete(id)
+
     }
 
-    var result = calculate(cell)
-    cells.set(id, {
-        'value': result,
-        'formula': formula,
-        'refs': refs
-    })
-    cell.prop('value', result)
+    else if(NEW_CELL){
+
+        refresh_cell(id, formula, eval(computable(formula, new_refs)))
+        add_new_links(id, new_refs)
+
+    }
     
-    //console.log(cells.get(cell_id))
-    //for (var [key, value] of cells) { console.log(key + ' = ' + value); }
-    
+    else if(MODIFY_CELL){
+
+        refresh_cell(id, formula, eval(computable(formula, new_refs)))
+        remove_old_links(id, old_refs)
+        add_new_links(id, new_refs)
+
+    }
+        
+    //Now call cells that might reference it
+    //No point doing this until coding for errors is done
+
     save()
 
 }
 
-var calculate = (cell) => {
-
-    var formula = cell.prop('value')
-    if(typeof formula === 'number') return formula
-    if(formula.charAt(0) !== '=') return formula
-
-    var c_refs = get_refs(formula)
-    if(c_refs){ c_refs.forEach(function(ref) {
-        var res = cells.get(to_id(ref)).value
+var computable = (formula, new_refs) => {
+    if(new_refs){ new_refs.forEach(function(ref) {
+        var res = DATA.get(hyphenate(ref)).value
         formula = formula.replace(ref, res)
     })}
-
-    //first thing to do is evaluate functions but that is later...
-    return eval(formula.substring(1))
-
+    return formula.charAt(0) !== '=' ? formula : formula.substring(1)
 }
+
+var refresh_cell = (id, formula, result) => {
+    DATA.set(id, {
+        'value': result,
+        'formula': formula
+    })
+    $(`#${id}`).prop('value', result)
+}
+
+var remove_old_links = (id, old_refs) => {
+    if(old_refs){ old_refs.forEach(function(ref) {
+            LINKS.get(hyphenate(ref)).splice(ref.indexOf(id), 1)
+    })}
+}
+
+var add_new_links = (id, new_refs) => {
+    if(new_refs) new_refs.forEach(function(ref) {
+        var href = hyphenate(ref)
+        if(!LINKS.has(href)) LINKS.set(href, [])
+        LINKS.get(href).push(id)
+    })
+}
+
+//console.log(DATA.get(cell_id))
+//for (var [key, value] of DATA) { console.log(key + ' = ' + value); }
+
 
 /**
  * Get all the cell references contained in a formula
@@ -193,9 +216,13 @@ var get_refs = (formula) => {
     return formula.match(/[A-Z]+[0-9]+/gm)
 }
 
-var to_id = (str) => {
+var hyphenate = (str) => {
     var index = str.indexOf(str.match(/\d/))
     return str.substring(0, index) + "-" + str.substring(index)
+}
+
+var dehyphenate = (str) => {
+
 }
 
 var save = () => {
@@ -232,8 +259,8 @@ var blur_cell = (cell) => {
 
 focused_cell.focus() //why doesnt this work?
 
-// cells.set('f', 'g')
-// for (var [key, value] of cells) {
+// DATA.set('f', 'g')
+// for (var [key, value] of DATA) {
 //     console.log(key + ' = ' + value);
 // }
 
