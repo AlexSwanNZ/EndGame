@@ -8,7 +8,10 @@
 const cols = 10
 const rows = 10
 
-const functions = [/(sum|SUM)\([A-Z]+[0-9]+:[A-Z]+[0-9]+\)/gm]
+const functions = [
+    /(sum|SUM)\([A-Z]+[0-9]+:[A-Z]+[0-9]+\)/gm,
+    /(ifeq|IFEQ)\([A-Z]+[0-9]+(,[A-Z]+[0-9]+){3}\)/gm
+]
 
 var column_head_letters = []
 
@@ -121,10 +124,9 @@ var compute = (formula, new_refs) => {
     var is_function = formula.charAt(0) === '='
     if(is_function){ functions.forEach( function(f){
         var funcs = formula.match(f)
-        if(funcs){
-            //funcs may be many so need a for loop here
-            formula = formula.replace(funcs[0], 3) //sum always evaluates to 3
-        }
+        if(funcs){ funcs.forEach( function(f){
+            formula = formula.replace(funcs[0], sum(f)) //only sum is coded for now
+        })}
     })}
 
     try{ if(new_refs){ new_refs.forEach(function(ref) {
@@ -136,7 +138,13 @@ var compute = (formula, new_refs) => {
 }
 
 var sum = (formula) => {
-
+    var refs = refs_in_range(formula.match(/[A-Z]+[0-9]+:[A-Z]+[0-9]+/gm)[0])
+    var s = 0
+    refs.forEach( function(ref){
+        var val = DATA.get(hyphenate(ref))
+        if(val) s += Number(val.value)
+    })
+    return s
 }
 
 var refresh_cell = (id, formula, new_refs) => {
@@ -174,26 +182,7 @@ var get_refs = (formula) => {
 
         var ranges = formula.match(/[A-Z]+[0-9]+:[A-Z]+[0-9]+/gm)
         ranges.forEach( function(range){
-            console.log(range)
-            var letters = range.match(/[A-Z]+/gm)
-            var a_idx = column_head_letters.indexOf(letters[0])
-            var b_idx = column_head_letters.indexOf(letters[1])
-            var min_idx = a_idx < b_idx ? a_idx : b_idx
-            var max_idx = a_idx > b_idx ? a_idx : b_idx
-            
-            var numbers = range.match(/[0-9]+/gm)
-            var num_a = Number(numbers[0])
-            var num_b = Number(numbers[1])
-            var min_num = num_a < num_b ? num_a : num_b
-            var max_num = num_a > num_b ? num_a : num_b
-            
-            for(i = min_idx; i <= max_idx; i++){
-                var letter = column_head_letters[i]
-                for(j = min_num; j <= max_num; j++){
-                    range_refs.push(letter + j)
-                }
-            }
-
+            range_refs = range_refs.concat(refs_in_range(range))
         })
 
     }
@@ -202,6 +191,31 @@ var get_refs = (formula) => {
     if(range_refs.length === 0) return unique_array(in_formula)
     if(in_formula) return unique_array(in_formula.concat(range_refs))
     return unique_array(range_refs)
+
+}
+
+var refs_in_range = (range) => {
+    
+    range_refs = []
+    var letters = range.match(/[A-Z]+/gm)
+    var a_idx = column_head_letters.indexOf(letters[0])
+    var b_idx = column_head_letters.indexOf(letters[1])
+    var min_idx = a_idx < b_idx ? a_idx : b_idx
+    var max_idx = a_idx > b_idx ? a_idx : b_idx
+    
+    var numbers = range.match(/[0-9]+/gm)
+    var num_a = Number(numbers[0])
+    var num_b = Number(numbers[1])
+    var min_num = num_a < num_b ? num_a : num_b
+    var max_num = num_a > num_b ? num_a : num_b
+    
+    for(i = min_idx; i <= max_idx; i++){
+        var letter = column_head_letters[i]
+        for(j = min_num; j <= max_num; j++){
+            range_refs.push(letter + j)
+        }
+    }
+    return range_refs
 
 }
 
@@ -323,9 +337,8 @@ var blur_cell = (cell) => {
 
 focused_cell = $(`#A-1`) //Not working...
 
-// $(".in").keypress( function(e) {
-//     if(e.which === 0){
-//         for (var [key, value] of LINKS) { console.log(key + ': ' + value); }
-//         i= 0
-//     }
-// })
+$(".in").keypress( function(e) {
+    if(e.which === 0){
+        for (var [key, value] of LINKS) { console.log(key + ': ' + value); }
+    }
+})
