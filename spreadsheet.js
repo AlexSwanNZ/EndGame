@@ -65,32 +65,32 @@ var evaluate = (cell) => {
     var formula = cell.prop('value')
 
     //Flags
-    var DELETE_CELL = formula.length == 0
-    var NEW_CELL = !DATA.has(id)
-    var MODIFY_CELL = !NEW_CELL
-    var NO_INPUT = formula.length == 0 && NEW_CELL
+    var delete_cell = formula.length == 0
+    var new_cell = !DATA.has(id)
+    var modify_cell = !new_cell
+    var no_input = formula.length == 0 && new_cell
 
-    if(NO_INPUT) return
+    if(no_input) return
 
     //list of unique links to other cells before and after change
-    var old_refs = NEW_CELL ? undefined : get_refs(DATA.get(id).formula)
+    var old_refs = new_cell ? undefined : get_refs(DATA.get(id).formula)
     var new_refs = get_refs(formula)
 
-    if(DELETE_CELL){
+    if(delete_cell){
 
         remove_old_links(id, old_refs)
         DATA.delete(id)
 
     }
 
-    else if(NEW_CELL){
+    else if(new_cell){
 
         refresh_cell(id, formula, new_refs)
         add_new_links(id, new_refs)
 
     }
     
-    else if(MODIFY_CELL){
+    else if(modify_cell){
 
         refresh_cell(id, formula, new_refs)
         remove_old_links(id, old_refs)
@@ -123,18 +123,46 @@ var compute = (formula, new_refs) => {
 
     var is_function = formula.charAt(0) === '='
     if(is_function){ functions.forEach( function(f){
+        console.log('checking function: ' + f)
         var funcs = formula.match(f)
-        if(funcs){ funcs.forEach( function(f){
-            formula = formula.replace(funcs[0], sum(f)) //only sum is coded for now
+        if(funcs){ funcs.forEach( function(func){
+            if(func.toLowerCase().startsWith('sum'))
+                formula = formula.replace(funcs[0], sum(func))
+            else if(func.toLowerCase().startsWith('ifeq'))
+                formula = formula.replace(funcs[0], ifeq(func))
         })}
     })}
+    console.log(formula)
 
-    try{ if(new_refs){ new_refs.forEach(function(ref) {
-        var res = DATA.get(hyphenate(ref)).value
+    try{ if(new_refs){ new_refs.forEach(function(ref) { //error in here for parsing multiple functions
+        var dat = DATA.get(hyphenate(ref))
+        var res = dat.value
         do{ formula = formula.replace(ref, res) }
         while(formula.includes(ref))
     })}}catch(e){ return "#ERROR" }
     return is_function ? eval(formula.substring(1)) : formula
+}
+
+var ifeq = (formula) => {
+
+    var c = formula.match(/[A-Z]+[0-9]+/gm)
+
+    var cells = []
+    cells[0] = DATA.get(hyphenate(c[0]))
+    cells[1] = DATA.get(hyphenate(c[1]))
+    cells[2] = DATA.get(hyphenate(c[2]))
+    cells[3] = DATA.get(hyphenate(c[3]))
+
+    var all_cells_defined = cells[0] && cells[1] && cells[2] && cells[3]
+
+    if(all_cells_defined){
+
+        val_a = Number(cells[0].value)
+        val_b = Number(cells[1].value)
+        return val_a === val_b ? Number(cells[2].value) : Number(cells[3].value)
+
+    }
+
 }
 
 var sum = (formula) => {
