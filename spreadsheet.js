@@ -46,8 +46,6 @@ for(var i = 0; i <= cols; i++){ column_head_letters[i] = num_to_let(i) }
     }
 })()
 
-focused_cell = $(`#${document.getElementById("A1")}`) //Not working...
-
 $(".in").css({
     'text-align': 'right',
     'border': 'none',
@@ -101,7 +99,6 @@ $(".in").focus( function(){
 
 })
 
-//Font settings per cell
 $(".selector").click( function() {
     
     var box = $(this).prop('id')
@@ -113,20 +110,24 @@ $(".selector").click( function() {
 })
 
 $(".in").keypress( function(e) {
-    if(e.which === 13){
-        //Focus next cell
+    if(e.key === 'Enter' || e.key === 'ArrowDown'){
         var curr = focused_cell.prop('id').split('-')
         var toFocus = curr[0] + '-' + ((curr[1] % rows) + 1)
         $('#'+toFocus).focus()
     }
+    // else if(e.key === 'ArrowUp'){
+    //     var curr = focused_cell.prop('id').split('-')
+    //     var toFocus = curr[0] + '-' + ((curr[1] + rows - 1) % rows)
+    //     $('#'+toFocus).focus()
+    // }
 })
 
-$(".in").keypress( function(e) {
-    if(e.which === 0){
-        for (var [key, value] of LINKS) { console.log(key + ': ' + value); }
-        i= 0
-    }
-})
+// $(".in").keypress( function(e) {
+//     if(e.which === 0){
+//         for (var [key, value] of LINKS) { console.log(key + ': ' + value); }
+//         i= 0
+//     }
+// })
 
 var unique_array = (array) => {
     var unique = []
@@ -164,36 +165,48 @@ var evaluate = (cell) => {
 
     else if(NEW_CELL){
 
-        refresh_cell(id, formula, eval(computable(formula, new_refs)))
+        refresh_cell(id, formula, new_refs)
         add_new_links(id, new_refs)
 
     }
     
     else if(MODIFY_CELL){
 
-        refresh_cell(id, formula, eval(computable(formula, new_refs)))
+        refresh_cell(id, formula, new_refs)
         remove_old_links(id, old_refs)
         add_new_links(id, new_refs)
 
     }
-        
-    //Now call cells that might reference it
-    //No point doing this until coding for errors is done
-
+    
+    update_refs(id)
     save()
 
 }
 
-var computable = (formula, new_refs) => {
-    if(new_refs){ new_refs.forEach(function(ref) {
-        var res = DATA.get(hyphenate(ref)).value
-        do{ formula = formula.replace(ref, res)
-        }while(formula.includes(ref))
+var update_refs = (id) => {
+    var update = LINKS.get(id)
+    if(update){ update.forEach( function(c){
+        refresh_links(c)
     })}
-    return formula.charAt(0) !== '=' ? formula : formula.substring(1)
 }
 
-var refresh_cell = (id, formula, result) => {
+var refresh_links = (id) => {
+    var formula = DATA.get(id).formula
+    refresh_cell(id, formula, unique_array(get_refs(formula)))
+    update_refs(id)
+}
+
+var compute = (formula, new_refs) => {
+    try{ if(new_refs){ new_refs.forEach(function(ref) {
+        var res = DATA.get(hyphenate(ref)).value
+        do{ formula = formula.replace(ref, res) }
+        while(formula.includes(ref))
+    })}}catch(e){ return "#ERROR" }
+    return formula.charAt(0) !== '=' ? eval(formula) : eval(formula.substring(1))
+}
+
+var refresh_cell = (id, formula, new_refs) => {
+    var result = compute(formula, new_refs)
     DATA.set(id, {
         'value': result,
         'formula': formula
@@ -215,7 +228,6 @@ var remove_old_links = (id, old_refs) => {
 var add_new_links = (id, new_refs) => {
     if(new_refs) new_refs.forEach(function(ref) {
         var href = hyphenate(ref)
-        console.log(href + ' new link added: ' + id)
         if(!LINKS.has(href)) LINKS.set(href, [])
         LINKS.get(href).push(id)
     })
@@ -228,10 +240,6 @@ var get_refs = (formula) => {
 var hyphenate = (str) => {
     var index = str.indexOf(str.match(/\d/))
     return str.substring(0, index) + "-" + str.substring(index)
-}
-
-var dehyphenate = (str) => {
-
 }
 
 var save = () => {
@@ -264,3 +272,5 @@ var blur_cell = (cell) => {
         'text-align': 'right'
     })
 }
+
+focused_cell = $(`#A-1`) //Not working...
