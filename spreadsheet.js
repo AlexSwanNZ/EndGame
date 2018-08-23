@@ -13,10 +13,7 @@ const functions = [
     /(ifeq|IFEQ)\([A-Z]+[0-9]+(,[A-Z]+[0-9]+){3}\)/gm
 ]
 
-//debug
-var display_links_on_arrow_key = false
-
-var column_head_letters = []
+var DEBUG = false
 
 var DATA = new Map()
 var LINKS = new Map()
@@ -26,6 +23,7 @@ var bg_col = '#fff',
     focus_col = '#ccf',
     cell_width = 80
 
+var column_head_letters = []
 var bold_cells = []
 var italic_cells = []
 var underline_cells = []
@@ -201,6 +199,7 @@ var compute = (formula, new_refs) => {
     })}}
     catch(e){ return "#ERROR" }
     if(formula.includes('#ERROR')) return '#ERROR'
+    if(formula.includes('#CIRC')) return '#CIRC'
     return is_function ? eval(formula.substring(1)) : formula
 
 }
@@ -337,6 +336,10 @@ $(document).ready(function(){
         italic_cells.forEach( function(id){ $(`#${id}`).css('font-style', 'normal') })
         underline_cells.forEach( function(id){ $(`#${id}`).css('text-decoration', 'none') })
 
+        bold_cells = []
+        italic_cells = []
+        underline_cells = []
+
         refresh_font_boxes()
 
     })
@@ -364,6 +367,8 @@ $(document).ready(function(){
     })
 
     $("#reload").click( function(e){
+
+        //$("#clear").click()
 
         link_array = localStorage.link_array.split(',')
         data_array = localStorage.data_array.split(',')
@@ -479,7 +484,7 @@ $(document).ready(function(){
 
     //Debug function
     $(".in").keypress( function(e) {
-        if(e.which === 0 && display_links_on_arrow_key){
+        if(e.which === 0 && DEBUG){
             for (var [key, value] of LINKS) { console.log(key, 'referenced by:', value); }
             for (var [key, value] of DATA) { console.log(key, 'data:', value); }
         }
