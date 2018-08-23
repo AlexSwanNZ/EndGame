@@ -26,6 +26,10 @@ var bg_col = '#fff',
     focus_col = '#ccf',
     cell_width = 80
 
+var bold_cells = []
+var italic_cells = []
+var underline_cells = []
+
 var num_to_let = (num, str = '') => {
     
     var inp = ((num - 1) % 26) + 65
@@ -256,21 +260,30 @@ var hyphenate = (str) => {
     return str.substring(0, index) + "-" + str.substring(index)
 }
 
+var refresh_font_boxes = (cell) => {
+
+    $('#bold').prop('checked', (focused_cell.css('font-weight') == 700) ? true : false)
+    $('#italic').prop('checked', (focused_cell.css('font-style') === 'italic') ? true : false)
+    $('#underline').prop('checked', focused_cell.css('text-decoration') === 'underline' ? true : false)
+
+}
+
 $(document).ready(function(){
 
     $("#clear").click( function(e){
 
-        for (var [key, value] of DATA){
+        for (var [key] of DATA){
             $(`#${key}`).prop('value', '')
-            DATA.delete(key) //mutable?
+            DATA.delete(key)
         }
 
-        for (var [key, value] of LINKS){
-            LINKS.delete(key)
-        }
+        for (var [key] of LINKS) LINKS.delete(key)
 
-        // DATA = new Map()
-        // LINKS = new Map()
+        bold_cells.forEach( function(id){ $(`#${id}`).css('font-weight', 'normal') })
+        italic_cells.forEach( function(id){ $(`#${id}`).css('font-style', 'normal') })
+        underline_cells.forEach( function(id){ $(`#${id}`).css('text-decoration', 'none') })
+
+        refresh_font_boxes()
 
     })
 
@@ -290,6 +303,9 @@ $(document).ready(function(){
 
         localStorage.link_array = link_array
         localStorage.data_array = data_array
+        localStorage.bold_cells = bold_cells
+        localStorage.italic_cells = italic_cells
+        localStorage.underline_cells = underline_cells
 
     })
 
@@ -297,6 +313,12 @@ $(document).ready(function(){
 
         link_array = localStorage.link_array.split(',')
         data_array = localStorage.data_array.split(',')
+        bold_cells = localStorage.bold_cells
+        bold_cells = '' === bold_cells ? [] : bold_cells.split(',')
+        italic_cells = localStorage.italic_cells
+        italic_cells = '' === italic_cells ? [] : italic_cells.split(',')
+        underline_cells = localStorage.underline_cells
+        underline_cells = '' === underline_cells ? [] : underline_cells.split(',')
 
         link_array.forEach( function(cell){
             LINKS.set(cell, localStorage[cell + '_links'].split(','))
@@ -307,6 +329,12 @@ $(document).ready(function(){
             DATA.set(cell, dat)
             $(`#${cell}`).prop('value', dat.value)
         })
+
+        bold_cells.forEach( function(id){ $(`#${id}`).css('font-weight', 'bold') })
+        italic_cells.forEach( function(id){ $(`#${id}`).css('font-style', 'italic') })
+        underline_cells.forEach( function(id){ $(`#${id}`).css('text-decoration', 'underline') })
+
+        refresh_font_boxes()
 
     })
 
@@ -327,22 +355,45 @@ $(document).ready(function(){
         var disp = DATA.has(id) ? DATA.get(id).formula : undefined
         if(disp) $(this).val(disp)
 
-        //Set the font buttons correctly
-        $('#bold').prop('checked', ($(this).css('font-weight') == 700) ? true : false)
-        $('#italic').prop('checked', ($(this).css('font-style') === 'italic') ? true : false)
-        $('#underline').prop('checked', $(this).css('text-decoration') === 'underline' ? true : false)
+        refresh_font_boxes()
 
     })
 
     $(".selector").click( function() {
         
+        var id = focused_cell.prop('id')
         var box = $(this).prop('id')
         var checked = $(this).prop('checked')
-        if(box === 'bold') focused_cell.css('font-weight', checked ? 'bold': 'normal')
-        if(box === 'italic') focused_cell.css('font-style', checked ? 'italic' : 'normal')
-        if(box === 'underline') focused_cell.css('text-decoration', checked ? 'underline' : 'none')
+
+        if(box === 'bold'){
+            // toggle_font(bold_cells, id, checked)
+            if(checked) bold_cells.push(id)
+            else bold_cells.splice(bold_cells.indexOf(id), 1)
+            focused_cell.css('font-weight', checked ? 'bold': 'normal')
+        }
+
+        if(box === 'italic'){
+            // toggle_font(italic_cells, id, checked)
+            if(checked) italic_cells.push(id)
+            else italic_cells.splice(italic_cells.indexOf(id), 1)
+            focused_cell.css('font-style', checked ? 'italic' : 'normal')
+        }
+
+        if(box === 'underline'){
+            // toggle_font(underline_cells, id, checked)
+            if(checked) underline_cells.push(id)
+            else underline_cells.splice(underline_cells.indexOf(id), 1)
+            focused_cell.css('text-decoration', checked ? 'underline' : 'none')
+        }
+
+        refresh_font_boxes()
 
     })
+
+    // var toggle_font = (font_array, cell_id, checked) => {
+    //     if(checked) font_array.push(cell_id)
+    //     else font_array.splice(font_array.indexOf(cell_id), 1)
+    // }
 
     $(document).keypress( function(e) {
         if(e.key === 'Enter' || e.key === 'ArrowDown'){
