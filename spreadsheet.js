@@ -198,9 +198,16 @@ var compute = (formula, new_refs) => {
 
     })}}
     catch(e){ return "#ERROR" }
+
     if(formula.includes('#ERROR')) return '#ERROR'
     if(formula.includes('#CIRC')) return '#CIRC'
-    return is_function ? eval(formula.substring(1)) : formula
+    
+    try{
+        return is_function ? eval(formula.substring(1)) : formula
+    }catch(e){
+        return '#ERROR'
+    }
+     
 
 }
 
@@ -250,6 +257,8 @@ var hyphenate = (str) => {
     var index = str.indexOf(str.match(/\d/))
     return str.substring(0, index) + "-" + str.substring(index)
 }
+
+/*****************************************JQUERY***********************************************/
 
 $(document).ready(function(){
 
@@ -367,8 +376,6 @@ $(document).ready(function(){
     })
 
     $("#reload").click( function(e){
-
-        //$("#clear").click()
 
         link_array = localStorage.link_array.split(',')
         data_array = localStorage.data_array.split(',')
