@@ -14,7 +14,7 @@ const functions = [
 ]
 
 //debug
-var display_links_on_arrow_key = false
+var display_links_on_arrow_key = true
 
 var column_head_letters = []
 
@@ -81,42 +81,56 @@ var evaluate = (cell) => {
 
     if(no_input) return
 
-    //list of unique links to other cells before and after change
     var old_refs = new_cell ? undefined : get_refs(DATA.get(id).formula)
     var new_refs = get_refs(formula)
 
-    if(delete_cell){
+    if(has_circular(id, new_refs)){
+        cell.prop('value', '#CIRC')
+        return
+    }
 
+    if(delete_cell){
         remove_old_links(id, old_refs)
         DATA.delete(id)
-
     }
 
     else if(new_cell){
-
         refresh_cell(id, formula, new_refs)
         add_new_links(id, new_refs)
-
     }
     
     else if(modify_cell){
-
         refresh_cell(id, formula, new_refs)
         remove_old_links(id, old_refs)
         add_new_links(id, new_refs)
-
     }
     
     update_refs(id)
 
 }
 
-var update_refs = (id) => {
-    var update = LINKS.get(id)
+var has_circular = (id, refs) => {
 
+    if(!refs) return false
+    if(refs.includes(id.replace('-', ''))) return true
+
+    for(i = 0; i < refs.length; i++){
+        var r = hyphenate(refs[i])
+        var child_refs = !DATA.has(r) ? undefined : get_refs(DATA.get(r).formula)
+        return has_circular(id, child_refs)
+    }
+
+    return false
+
+}
+
+var update_refs = (id) => {
+    
+    var update = LINKS.get(id)
     if(update){ update.forEach( function(c){
         refresh_links(c)
     })}
+
 }
 
 var refresh_links = (id) => {
@@ -140,7 +154,7 @@ var compute = (formula, new_refs) => {
     })}
 
     try{
-        if(new_refs){ new_refs.forEach(function(ref) { //error in here for parsing multiple functions
+        if(new_refs){ new_refs.forEach(function(ref) {
             var dat = DATA.get(hyphenate(ref))
             var res = dat.value
             do{ formula = formula.replace(ref, res) }
@@ -148,6 +162,7 @@ var compute = (formula, new_refs) => {
         })}
     }
     catch(e){ return "#ERROR" }
+    if(formula.includes('#ERROR')) return '#ERROR'
     return is_function ? eval(formula.substring(1)) : formula
 }
 
@@ -324,7 +339,7 @@ $(document).ready(function(){
             LINKS.set(cell, localStorage[cell + '_links'].split(','))
         })
 
-        data_array.forEach( function(cell){
+        if(data_array[0] !== '') data_array.forEach( function(cell){
             var dat = JSON.parse(localStorage[cell + '_data'])
             DATA.set(cell, dat)
             $(`#${cell}`).prop('value', dat.value)
@@ -409,8 +424,8 @@ $(document).ready(function(){
     $(".in").css({
         'text-align': 'right',
         'border': 'none',
-        'font-size': '14px',
-        'padding': '2px'
+        'font-size': '16px',
+        'padding': '1px'
     })
     .width(cell_width)
 
@@ -463,8 +478,10 @@ $(document).ready(function(){
     $(".in").keypress( function(e) {
         if(e.which === 0 && display_links_on_arrow_key){
             for (var [key, value] of LINKS) { console.log(key, 'referenced by:', value); }
-            for (var [key, value] of LINKS) { console.log(key, 'data:', value); }
+            for (var [key, value] of DATA) { console.log(key, 'data:', value); }
         }
     })
+
+    refresh_font_boxes()
 
 })
