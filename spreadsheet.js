@@ -13,6 +13,9 @@ const functions = [
     /(ifeq|IFEQ)\([A-Z]+[0-9]+(,[A-Z]+[0-9]+){3}\)/gm
 ]
 
+//debug
+var display_links_on_arrow_key = false
+
 var column_head_letters = []
 
 var DATA = new Map()
@@ -118,28 +121,27 @@ var refresh_links = (id) => {
 
 var compute = (formula, new_refs) => {
 
-    //cant just jump in and replace all refs because there might be a function
-    //finding references will need to operate completely differently but that can be sorted later
-
     var is_function = formula.charAt(0) === '='
     if(is_function){ functions.forEach( function(f){
-        console.log('checking function: ' + f)
+        
         var funcs = formula.match(f)
-        if(funcs){ funcs.forEach( function(func){
-            if(func.toLowerCase().startsWith('sum'))
-                formula = formula.replace(funcs[0], sum(func))
-            else if(func.toLowerCase().startsWith('ifeq'))
-                formula = formula.replace(funcs[0], ifeq(func))
+        if(funcs){ funcs.forEach( function(func){ //Call specific functions
+            var str = func.toLowerCase()
+            if(str.startsWith('sum')) formula = formula.replace(func, sum(func))
+            else if(str.startsWith('ifeq')) formula = formula.replace(func, ifeq(func))
         })}
-    })}
-    console.log(formula)
 
-    try{ if(new_refs){ new_refs.forEach(function(ref) { //error in here for parsing multiple functions
-        var dat = DATA.get(hyphenate(ref))
-        var res = dat.value
-        do{ formula = formula.replace(ref, res) }
-        while(formula.includes(ref))
-    })}}catch(e){ return "#ERROR" }
+    })}
+
+    try{
+        if(new_refs){ new_refs.forEach(function(ref) { //error in here for parsing multiple functions
+            var dat = DATA.get(hyphenate(ref))
+            var res = dat.value
+            do{ formula = formula.replace(ref, res) }
+            while(formula.includes(ref))
+        })}
+    }
+    catch(e){ return "#ERROR" }
     return is_function ? eval(formula.substring(1)) : formula
 }
 
@@ -366,7 +368,7 @@ var blur_cell = (cell) => {
 focused_cell = $(`#A-1`) //Not working...
 
 $(".in").keypress( function(e) {
-    if(e.which === 0){
+    if(e.which === 0 && display_links_on_arrow_key){
         for (var [key, value] of LINKS) { console.log(key + ': ' + value); }
     }
 })
