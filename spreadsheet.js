@@ -14,7 +14,7 @@ const functions = [
 ]
 
 //debug
-var display_links_on_arrow_key = false
+var display_links_on_arrow_key = true
 
 var column_head_letters = []
 
@@ -102,7 +102,6 @@ var evaluate = (cell) => {
     }
     
     update_refs(id)
-    save()
 
 }
 
@@ -254,15 +253,62 @@ var hyphenate = (str) => {
     return str.substring(0, index) + "-" + str.substring(index)
 }
 
-var save = () => {
-    //get list of keys
-    //store each key in localstorage with JSON value of object in map
-}
+$("#clear").click( function(e){
 
-var clear = () => {
-    //clear reference array and localStorage
-    //redraw (inefficient) or clear each cell
-}
+    for (var [key, value] of DATA){
+        $(`#${key}`).prop('value', '')
+        DATA.delete(key) //mutable?
+    }
+
+    for (var [key, value] of LINKS){
+        LINKS.delete(key)
+    }
+
+})
+
+$("#save").click( function(e){
+
+    var link_array = []
+    for (var [key, value] of LINKS){
+        console.log('links: ', key, value)
+        localStorage[key + '_links'] = value
+        link_array.push(key)
+    }
+
+    var data_array = []
+    for (var [key, value] of DATA){
+        console.log('data: ', key, value)
+        localStorage[key + '_data'] = JSON.stringify(value)
+        data_array.push(key)
+    }
+
+    localStorage.link_array = link_array
+    localStorage.data_array = data_array
+
+    console.log('IN la: ', link_array)
+    console.log('IN da: ', data_array)
+
+    console.log('OUT la: ', localStorage.link_array.split(','))
+    console.log('OUT da: ', localStorage.data_array.split(','))
+
+})
+
+$("#reload").click( function(e){
+
+    link_array = localStorage.link_array.split(',')
+    data_array = localStorage.data_array.split(',')
+
+    link_array.forEach( function(cell){
+        LINKS.set(cell, localStorage[cell + '_links'])
+    })
+
+    data_array.forEach( function(cell){
+        var dat = JSON.parse(localStorage[cell + '_data'])
+        DATA.set(cell, dat)
+        $(`#${cell}`).prop('value', dat.value)
+    })
+
+})
 
 $(".in").focus( function(){
 
@@ -298,17 +344,15 @@ $(".selector").click( function() {
 
 })
 
-$(".in").keypress( function(e) {
+$(document).keypress( function(e) {
     if(e.key === 'Enter' || e.key === 'ArrowDown'){
         var curr = focused_cell.prop('id').split('-')
-        var toFocus = curr[0] + '-' + ((curr[1] % rows) + 1)
-        $('#'+toFocus).focus()
+        $(`#${curr[0]}-${(curr[1] % rows) + 1}`).focus()
     }
-    // else if(e.key === 'ArrowUp'){
-    //     var curr = focused_cell.prop('id').split('-')
-    //     var toFocus = curr[0] + '-' + ((curr[1] + rows - 1) % rows)
-    //     $('#'+toFocus).focus()
-    // }
+    else if(e.key === 'ArrowUp'){
+        var curr = focused_cell.prop('id').split('-')
+        $(`#${curr[0]}-${Number(curr[1]) === 1 ? rows : curr[1] - 1}`).focus()
+    }
 })
 
 $(".in").css({
@@ -372,3 +416,5 @@ $(".in").keypress( function(e) {
         for (var [key, value] of LINKS) { console.log(key + ': ' + value); }
     }
 })
+
+
