@@ -14,7 +14,7 @@ const functions = [
 ]
 
 //debug
-var display_links_on_arrow_key = true
+var display_links_on_arrow_key = false
 
 var column_head_letters = []
 
@@ -62,6 +62,8 @@ for(var i = 0; i <= cols; i++){ column_head_letters[i] = num_to_let(i) }
     }
 })()
 
+focused_cell = $(`#A-1`) //Not working...
+
 var evaluate = (cell) => {
     
     var id = cell.prop('id')
@@ -107,6 +109,7 @@ var evaluate = (cell) => {
 
 var update_refs = (id) => {
     var update = LINKS.get(id)
+
     if(update){ update.forEach( function(c){
         refresh_links(c)
     })}
@@ -253,168 +256,164 @@ var hyphenate = (str) => {
     return str.substring(0, index) + "-" + str.substring(index)
 }
 
-$("#clear").click( function(e){
+$(document).ready(function(){
 
-    for (var [key, value] of DATA){
-        $(`#${key}`).prop('value', '')
-        DATA.delete(key) //mutable?
-    }
+    $("#clear").click( function(e){
 
-    for (var [key, value] of LINKS){
-        LINKS.delete(key)
-    }
+        for (var [key, value] of DATA){
+            $(`#${key}`).prop('value', '')
+            DATA.delete(key) //mutable?
+        }
 
-})
+        for (var [key, value] of LINKS){
+            LINKS.delete(key)
+        }
 
-$("#save").click( function(e){
+        // DATA = new Map()
+        // LINKS = new Map()
 
-    var link_array = []
-    for (var [key, value] of LINKS){
-        console.log('links: ', key, value)
-        localStorage[key + '_links'] = value
-        link_array.push(key)
-    }
-
-    var data_array = []
-    for (var [key, value] of DATA){
-        console.log('data: ', key, value)
-        localStorage[key + '_data'] = JSON.stringify(value)
-        data_array.push(key)
-    }
-
-    localStorage.link_array = link_array
-    localStorage.data_array = data_array
-
-    console.log('IN la: ', link_array)
-    console.log('IN da: ', data_array)
-
-    console.log('OUT la: ', localStorage.link_array.split(','))
-    console.log('OUT da: ', localStorage.data_array.split(','))
-
-})
-
-$("#reload").click( function(e){
-
-    link_array = localStorage.link_array.split(',')
-    data_array = localStorage.data_array.split(',')
-
-    link_array.forEach( function(cell){
-        LINKS.set(cell, localStorage[cell + '_links'])
     })
 
-    data_array.forEach( function(cell){
-        var dat = JSON.parse(localStorage[cell + '_data'])
-        DATA.set(cell, dat)
-        $(`#${cell}`).prop('value', dat.value)
+    $("#save").click( function(e){
+
+        var link_array = []
+        for (var [key, value] of LINKS){
+            localStorage[key + '_links'] = value
+            link_array.push(key)
+        }
+
+        var data_array = []
+        for (var [key, value] of DATA){
+            localStorage[key + '_data'] = JSON.stringify(value)
+            data_array.push(key)
+        }
+
+        localStorage.link_array = link_array
+        localStorage.data_array = data_array
+
     })
 
-})
+    $("#reload").click( function(e){
 
-$(".in").focus( function(){
+        link_array = localStorage.link_array.split(',')
+        data_array = localStorage.data_array.split(',')
 
-    //Evaluates previous cell
-    blur_cell(focused_cell)
-    focused_cell = $(this)
-    var id = focused_cell.prop('id')
+        link_array.forEach( function(cell){
+            LINKS.set(cell, localStorage[cell + '_links'].split(','))
+        })
 
-    //Highlight current cell
-    $(this).css({
-        'background-color': focus_col,
-        'text-align': 'left'
+        data_array.forEach( function(cell){
+            var dat = JSON.parse(localStorage[cell + '_data'])
+            DATA.set(cell, dat)
+            $(`#${cell}`).prop('value', dat.value)
+        })
+
     })
 
-    //Display the underlying formula for selected cell
-    var disp = DATA.has(id) ? DATA.get(id).formula : undefined
-    if(disp) $(this).val(disp)
+    $(".in").focus( function(){
 
-    //Set the font buttons correctly
-    $('#bold').prop('checked', ($(this).css('font-weight') == 700) ? true : false)
-    $('#italic').prop('checked', ($(this).css('font-style') === 'italic') ? true : false)
-    $('#underline').prop('checked', $(this).css('text-decoration') === 'underline' ? true : false)
+        //Evaluates previous cell
+        blur_cell(focused_cell)
+        focused_cell = $(this)
+        var id = focused_cell.prop('id')
 
-})
+        //Highlight current cell
+        $(this).css({
+            'background-color': focus_col,
+            'text-align': 'left'
+        })
 
-$(".selector").click( function() {
-    
-    var box = $(this).prop('id')
-    var checked = $(this).prop('checked')
-    if(box === 'bold') focused_cell.css('font-weight', checked ? 'bold': 'normal')
-    if(box === 'italic') focused_cell.css('font-style', checked ? 'italic' : 'normal')
-    if(box === 'underline') focused_cell.css('text-decoration', checked ? 'underline' : 'none')
+        //Display the underlying formula for selected cell
+        var disp = DATA.has(id) ? DATA.get(id).formula : undefined
+        if(disp) $(this).val(disp)
 
-})
+        //Set the font buttons correctly
+        $('#bold').prop('checked', ($(this).css('font-weight') == 700) ? true : false)
+        $('#italic').prop('checked', ($(this).css('font-style') === 'italic') ? true : false)
+        $('#underline').prop('checked', $(this).css('text-decoration') === 'underline' ? true : false)
 
-$(document).keypress( function(e) {
-    if(e.key === 'Enter' || e.key === 'ArrowDown'){
-        var curr = focused_cell.prop('id').split('-')
-        $(`#${curr[0]}-${(curr[1] % rows) + 1}`).focus()
+    })
+
+    $(".selector").click( function() {
+        
+        var box = $(this).prop('id')
+        var checked = $(this).prop('checked')
+        if(box === 'bold') focused_cell.css('font-weight', checked ? 'bold': 'normal')
+        if(box === 'italic') focused_cell.css('font-style', checked ? 'italic' : 'normal')
+        if(box === 'underline') focused_cell.css('text-decoration', checked ? 'underline' : 'none')
+
+    })
+
+    $(document).keypress( function(e) {
+        if(e.key === 'Enter' || e.key === 'ArrowDown'){
+            var curr = focused_cell.prop('id').split('-')
+            $(`#${curr[0]}-${(curr[1] % rows) + 1}`).focus()
+        }
+        else if(e.key === 'ArrowUp'){
+            var curr = focused_cell.prop('id').split('-')
+            $(`#${curr[0]}-${Number(curr[1]) === 1 ? rows : curr[1] - 1}`).focus()
+        }
+    })
+
+    $(".in").css({
+        'text-align': 'right',
+        'border': 'none',
+        'font-size': '14px',
+        'padding': '2px'
+    })
+    .width(cell_width)
+
+    $("tr:first-child").css({
+        'background-color': '#ccc',
+        'padding': '1px 3px',
+        'font-weight': 'bold',
+        'text-align': 'center'
+    })
+
+    $("td:first-child").css({
+        'background-color': '#ccc',
+        'padding': '1px 3px',
+        'font-weight': 'bold',
+        'text-align': 'center'
+    })
+
+    $("td").css({
+        'border': '1px solid #999',
+        'padding': '0'
+    })
+
+    $("table").css({'border-collapse': 'collapse'})
+
+
+    $(".in").blur( function(e){
+        evaluate($(this))
+        $(this).css({
+            'text-align': 'right'
+        })
+    })
+
+    $(".in").mouseover( function(){
+        if(this.id !== focused_cell.prop('id'))
+            $(this).css({'background-color': highlight_col})
+    })
+
+    $(".in").mouseout( function(){
+        var focused = this.id === focused_cell.prop('id')
+        $(this).css({'background-color': focused ? focus_col : bg_col})
+    })
+
+    var blur_cell = (cell) => {
+        cell.css({
+            'background-color': bg_col,
+            'text-align': 'right'
+        })
     }
-    else if(e.key === 'ArrowUp'){
-        var curr = focused_cell.prop('id').split('-')
-        $(`#${curr[0]}-${Number(curr[1]) === 1 ? rows : curr[1] - 1}`).focus()
-    }
-})
 
-$(".in").css({
-    'text-align': 'right',
-    'border': 'none',
-    'font-size': '14px',
-    'padding': '2px'
-})
-.width(cell_width)
-
-$("tr:first-child").css({
-    'background-color': '#ccc',
-    'padding': '1px 3px',
-    'font-weight': 'bold',
-    'text-align': 'center'
-})
-
-$("td:first-child").css({
-    'background-color': '#ccc',
-    'padding': '1px 3px',
-    'font-weight': 'bold',
-    'text-align': 'center'
-})
-
-$("td").css({
-    'border': '1px solid #999',
-    'padding': '0'
-})
-
-$("table").css({'border-collapse': 'collapse'})
-
-
-$(".in").blur( function(e){
-    evaluate($(this))
-    $(this).css({
-        'text-align': 'right'
+    $(".in").keypress( function(e) {
+        if(e.which === 0 && display_links_on_arrow_key){
+            for (var [key, value] of LINKS) { console.log(key, 'referenced by:', value); }
+            for (var [key, value] of LINKS) { console.log(key, 'data:', value); }
+        }
     })
+
 })
-
-$(".in").mouseover( function(){
-    if(this.id !== focused_cell.prop('id'))
-        $(this).css({'background-color': highlight_col})
-})
-
-$(".in").mouseout( function(){
-    var focused = this.id === focused_cell.prop('id')
-    $(this).css({'background-color': focused ? focus_col : bg_col})
-})
-
-var blur_cell = (cell) => {
-    cell.css({
-        'background-color': bg_col,
-        'text-align': 'right'
-    })
-}
-
-focused_cell = $(`#A-1`) //Not working...
-
-$(".in").keypress( function(e) {
-    if(e.which === 0 && display_links_on_arrow_key){
-        for (var [key, value] of LINKS) { console.log(key + ': ' + value); }
-    }
-})
-
-
