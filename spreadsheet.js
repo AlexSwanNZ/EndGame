@@ -58,12 +58,12 @@ for(var i = 0; i <= cols; i++){ column_head_letters[i] = num_to_let(i) }
         var row = document.querySelector("table").insertRow(-1)
         for (var j = 0; j<= cols; j++) {
             var letter = column_head_letters[j]
-            row.insertCell(-1).innerHTML = i && j ? '<input class="in" id="' + letter + '-' + i + '"/>' : i||letter
+            row.insertCell(-1).innerHTML = i && j ? '<input class="in" id="' + letter + i + '"/>' : i||letter
         }
     }
 })()
 
-focused_cell = $(`#A-1`)
+focused_cell = $(`#A1`)
 
 var refresh_cell = (id, formula, new_refs) => {
 
@@ -79,10 +79,9 @@ var refresh_cell = (id, formula, new_refs) => {
 var remove_old_links = (id, old_refs) => {
 
     if(old_refs){ old_refs.forEach(function(ref) {
-        var href = hyphenate(ref)
-        var list = LINKS.get(href)
+        var list = LINKS.get(ref)
         list.splice(ref.indexOf(id), 1)
-        if(list.length === 0) LINKS.delete(href)
+        if(list.length === 0) LINKS.delete(ref)
     })}
 
 }
@@ -90,9 +89,8 @@ var remove_old_links = (id, old_refs) => {
 var add_new_links = (id, new_refs) => {
 
     if(new_refs) new_refs.forEach(function(ref) {
-        var href = hyphenate(ref)
-        if(!LINKS.has(href)) LINKS.set(href, [])
-        LINKS.get(href).push(id)
+        if(!LINKS.has(ref)) LINKS.set(ref, [])
+        LINKS.get(ref).push(id)
     })
 
 }
@@ -100,10 +98,10 @@ var add_new_links = (id, new_refs) => {
 var has_circular = (id, refs) => {
 
     if(!refs) return false
-    if(refs.includes(id.replace('-', ''))) return true
+    if(refs.includes(id)) return true
 
     for(i = 0; i < refs.length; i++){
-        var r = hyphenate(refs[i])
+        var r = refs[i]
         var child_refs = !DATA.has(r) ? undefined : get_refs(DATA.get(r).formula)
         return has_circular(id, child_refs)
     }
@@ -191,8 +189,7 @@ var compute = (formula, new_refs) => {
 
     try{ if(new_refs){ new_refs.forEach(function(ref) {
 
-        var dat = DATA.get(hyphenate(ref))
-        var res = dat.value
+        var res = DATA.get(ref).value
         do{ formula = formula.replace(ref, res) }
         while(formula.includes(ref))
 
@@ -201,14 +198,10 @@ var compute = (formula, new_refs) => {
 
     if(formula.includes('#ERROR')) return '#ERROR'
     if(formula.includes('#CIRC')) return '#CIRC'
-    
-    try{
-        return is_function ? eval(formula.substring(1)) : formula
-    }catch(e){
-        return '#ERROR'
-    }
-     
 
+    try{ return is_function ? eval(formula.substring(1)) : formula }
+    catch(e){ return '#ERROR' }
+     
 }
 
 var ifeq = (formula) => {
@@ -216,10 +209,10 @@ var ifeq = (formula) => {
     var c = formula.match(/[A-Z]+[0-9]+/gm)
 
     var cells = []
-    cells[0] = DATA.get(hyphenate(c[0]))
-    cells[1] = DATA.get(hyphenate(c[1]))
-    cells[2] = DATA.get(hyphenate(c[2]))
-    cells[3] = DATA.get(hyphenate(c[3]))
+    cells[0] = DATA.get(c[0])
+    cells[1] = DATA.get(c[1])
+    cells[2] = DATA.get(c[2])
+    cells[3] = DATA.get(c[3])
 
     var all_cells_defined = cells[0] && cells[1] && cells[2] && cells[3]
 
@@ -238,24 +231,11 @@ var sum = (formula) => {
     var refs = refs_in_range(formula.match(/[A-Z]+[0-9]+:[A-Z]+[0-9]+/gm)[0])
     var s = 0
     refs.forEach( function(ref){
-        var val = DATA.get(hyphenate(ref))
+        var val = DATA.get(ref)
         if(val) s += Number(val.value)
     })
     return s
 
-}
-
-var refresh_font_boxes = (cell) => {
-
-    $('#bold').prop('checked', (focused_cell.css('font-weight') == 700) ? true : false)
-    $('#italic').prop('checked', (focused_cell.css('font-style') === 'italic') ? true : false)
-    $('#underline').prop('checked', focused_cell.css('text-decoration') === 'underline' ? true : false)
-
-}
-
-var hyphenate = (str) => {
-    var index = str.indexOf(str.match(/\d/))
-    return str.substring(0, index) + "-" + str.substring(index)
 }
 
 /*****************************************JQUERY***********************************************/
@@ -330,7 +310,7 @@ $(document).ready(function(){
 
     })
 
-    /*****************************************I/O FUNCTIONS***********************************************/
+    /*****************************************BUTTON FUNCTIONS***********************************************/
 
     $("#clear").click( function(e){
 
@@ -407,13 +387,18 @@ $(document).ready(function(){
     /*****************************************KEY/MOUSE FUNCTIONS***********************************************/
 
     $(document).keypress( function(e) {
+        var id = focused_cell.prop('id')
+        var idx = id.indexOf(id.match(/\d/))
+        var letter = id.substring(0,idx)
+        var num = Number(id.substring(idx))
         if(e.key === 'Enter' || e.key === 'ArrowDown'){
-            var curr = focused_cell.prop('id').split('-')
-            $(`#${curr[0]}-${(curr[1] % rows) + 1}`).focus()
+            $(`#${letter}${(num % rows) + 1}`).focus()
         }
         else if(e.key === 'ArrowUp'){
-            var curr = focused_cell.prop('id').split('-')
-            $(`#${curr[0]}-${Number(curr[1]) === 1 ? rows : curr[1] - 1}`).focus()
+            $(`#${letter}${num === 1 ? rows : num - 1}`).focus()
+        }
+        else{
+            if($("focus").prop('class') !== 'in') focused_cell.focus()
         }
     })
 
@@ -436,21 +421,19 @@ $(document).ready(function(){
         var checked = $(this).prop('checked')
 
         if(box === 'bold'){
-            // toggle_font(bold_cells, id, checked)
+            // set_font(bold_cells, id, checked, 'font-weight', checked ? 'bold' : 'normal')
             if(checked) bold_cells.push(id)
             else bold_cells.splice(bold_cells.indexOf(id), 1)
             focused_cell.css('font-weight', checked ? 'bold': 'normal')
         }
 
         if(box === 'italic'){
-            // toggle_font(italic_cells, id, checked)
             if(checked) italic_cells.push(id)
             else italic_cells.splice(italic_cells.indexOf(id), 1)
             focused_cell.css('font-style', checked ? 'italic' : 'normal')
         }
 
         if(box === 'underline'){
-            // toggle_font(underline_cells, id, checked)
             if(checked) underline_cells.push(id)
             else underline_cells.splice(underline_cells.indexOf(id), 1)
             focused_cell.css('text-decoration', checked ? 'underline' : 'none')
@@ -494,10 +477,19 @@ $(document).ready(function(){
         if(e.which === 0 && DEBUG){
             for (var [key, value] of LINKS) { console.log(key, 'referenced by:', value); }
             for (var [key, value] of DATA) { console.log(key, 'data:', value); }
+            console.log($(":focus").prop('class'))
         }
     })
 
     refresh_font_boxes()
-    $(`#A-1`).focus()
+    $(`#A1`).focus()
 
 })
+
+var refresh_font_boxes = (cell) => {
+
+    $('#bold').prop('checked', (focused_cell.css('font-weight') == 700) ? true : false)
+    $('#italic').prop('checked', (focused_cell.css('font-style') === 'italic') ? true : false)
+    $('#underline').prop('checked', focused_cell.css('text-decoration') === 'underline' ? true : false)
+
+}
